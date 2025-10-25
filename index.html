@@ -1,71 +1,74 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chatting Website</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap">
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <script src="https://cdn.ably.com/ably.min.js"></script>
-    <script src="https://accounts.google.com/gsi/client"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chatting Website</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <script src="https://cdn.ably.com/ably.min.js"></script>
+  <script src="https://accounts.google.com/gsi/client"></script>
+
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 </head>
+
 <body data-theme="dark">
-    <h1>Chatting Website</h1>
+  <h1>Chatting Website</h1>
 
-    <div style="position: absolute; top: 10px; right: 10px;">
-        <button id="darkModeToggle">Toggle Light Mode</button>
-        <button id="settingsButton">
-            <img id="avatarIcon" src="avatar1.png" alt="Avatar" style="width: 30px; height: 30px; vertical-align: middle;">
-            ⚙️
-        </button>
-        <div id="settingsMenu" style="display: none; position: absolute; top: 40px; right: 0; border: 1px solid #ccc; background-color: white; padding: 10px; z-index: 1;">
-            <div>
-                <label for="username">Username:</label>
-                <input type="text" id="username" />
-            </div>
-            <div>
-                <label>Avatar:</label>
-                <select id="avatarSelect">
-                    <option value="avatar1.png">Avatar 1</option>
-                    <option value="avatar2.png">Avatar 2</option>
-                    <option value="avatar3.png">Avatar 3</option>
-                </select>
-            </div>
+  <div style="position: absolute; top: 10px; right: 10px;">
+    <button id="darkModeToggle">Toggle Light Mode</button>
+    <button id="settingsButton">
+      <img id="avatarIcon" src="avatar1.png" alt="Avatar" style="width: 30px; height: 30px; vertical-align: middle;">
+      ⚙️
+    </button>
+    <div id="settingsMenu" style="display: none; position: absolute; top: 40px; right: 0; border: 1px solid #ccc; background-color: white; padding: 10px; z-index: 1;">
+      <div>
+        <label for="username">Username:</label>
+        <input type="text" id="username" />
+      </div>
+      <div>
+        <label>Avatar:</label>
+        <select id="avatarSelect">
+          <option value="avatar1.png">Avatar 1</option>
+          <option value="avatar2.png">Avatar 2</option>
+          <option value="avatar3.png">Avatar 3</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div id="chat-area">
+  </div>
+  <input type="text" id="message-input">
+  <button id="send-button">Send</button>
+  <div id="video-area">
+    <h2>Local Video</h2>
+    <video id="localVideo" autoplay muted style="width: 200px;"></video>
+    <h2>Remote Video</h2>
+    <video id="remoteVideo" autoplay style="width: 200px;"></video>
+  </div>
+
+  <!-- Login Modal -->
+  <div class="modal fade" id="loginModal" tabindex="-1" role="dialog" aria-labelledby="loginModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="loginModalLabel">Login or Register</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
         </div>
-    </div>
-
-    <div id="chat-area">
-    </div>
-    <input type="text" id="message-input">
-    <button id="send-button">Send</button>
-    <div id="video-area">
-        <h2>Local Video</h2>
-        <video id="localVideo" autoplay muted style="width: 200px;"></video>
-        <h2>Remote Video</h2>
-        <video id="remoteVideo" autoplay style="width: 200px;"></video>
-    </div>
-
-    <!-- Login Modal -->
-    <div class="modal fade" id="loginModal" tabindex="-1" role="dialog" aria-labelledby="loginModalLabel" aria-hidden="true">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="loginModalLabel">Login or Register</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <p>Please sign in to continue.</p>
-                    <button id="signInButtonModal">Sign In with Google</button>
-                </div>
-            </div>
+        <div class="modal-body">
+          <p>Please sign in to continue.</p>
+          <button id="signInButtonModal">Sign In with Google</button>
         </div>
+      </div>
     </div>
-    <script src="script.js"></script>
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+  </div>
+  <script src="script.js"></script>
 </body>
+
 </html>

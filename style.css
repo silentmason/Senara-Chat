@@ -25,3 +25,35 @@ button {
     font-size: 14px;
     cursor: pointer;
 }
+
+/* Dark mode styles */
+body[data-theme='dark'] {
+    background-color: #333;
+    color: #fff;
+}
+
+body[data-theme='dark'] #chat-area {
+    border-color: #fff;
+}
+
+body[data-theme='dark'] #settingsMenu {
+    background-color: #555;
+    border-color: #fff;
+    color: #fff;
+}
+
+/* Light mode styles */
+body[data-theme='light'] {
+    background-color: #fff;
+    color: #000;
+}
+
+body[data-theme='light'] #chat-area {
+    border-color: #000;
+}
+
+body[data-theme='light'] #settingsMenu {
+    background-color: #eee;
+    border-color: #000;
+    color: #000;
+}

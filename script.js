@@ -1,6 +1,3 @@
-// Import config (This line assumes you have a config.js)
-// import config from './config.js';
-
 // REMEMBER TO REPLACE 'YOUR_ABLY_API_KEY' WITH YOUR ABLY API KEY and import config
 const ably = new Ably.Realtime({ key: 'XRHh7Q.QGrriA:3QlMEmxAp2POdgbMdec3-6pV1R3QOJ82wGLsRE4tDLU' });
 const channel = ably.channels.get('my-chat-channel');

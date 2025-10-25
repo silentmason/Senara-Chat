@@ -105,4 +105,3 @@ function signOut() {
       client_id: '691636065786-dtr3orgvt0jma5urcbp35dlspuarfn58.apps.googleusercontent.com' // REMEMBER TO REPLACE 'YOUR_GOOGLE_CLIENT_ID' WITH YOUR GOOGLE CLIENT ID
     });
   });
-

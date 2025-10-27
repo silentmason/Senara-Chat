@@ -1,84 +1,120 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voice Chat</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.ably.com/ably.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice Chat</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.ably.com/ably.min.js"></script>
+  <script src="https://cdn.assemblyai.com/js/sdk/assemblyai.min.js"></script>
 </head>
+
 <body>
-    <h1>Voice Chat</h1>
+  <h1>Voice Chat</h1>
 
-    <button id="recordButton">Record</button>
-    <button id="stopButton" disabled>Stop</button>
+  <button id="recordButton">Record</button>
+  <button id="stopButton" disabled>Stop</button>
 
-    <div>
-        <h2>Your Audio</h2>
-        <audio id="localAudio" controls></audio>
-    </div>
+  <div>
+    <h2>Your Audio</h2>
+    <audio id="localAudio" controls></audio>
+  </div>
 
-    <div>
-        <h2>Remote Audio</h2>
-        <audio id="remoteAudio" controls></audio>
-    </div>
+  <div>
+    <h2>Remote Audio</h2>
+    <audio id="remoteAudio" controls></audio>
+  </div>
 
-    <script>
-        const ably = new Ably.Realtime({ key: 'XRHh7Q.QGrriA:3QlMEmxAp2POdgbMdec3-6pV1R3QOJ82wGLsRE4tDLU' }); // Replace with your API key
-        const channel = ably.channels.get('voice-channel');
+  <script>
+    const assembly = new AssemblyAI({
+      apiKey: "e34b3f14f7784bd3adeb16582173471b"  // REMEMBER TO REPLACE
+    });
+    const ably = new Ably.Realtime({
+      key: 'XRHh7Q.QGrriA:3QlMEmxAp2POdgbMdec3-6pV1R3QOJ82wGLsRE4tDLU'
+    }); // Replace with your API key
+    const channel = ably.channels.get('voice-channel');
 
-        const recordButton = document.getElementById('recordButton');
-        const stopButton = document.getElementById('stopButton');
-        const localAudio = document.getElementById('localAudio');
-        const remoteAudio = document.getElementById('remoteAudio');
+    const recordButton = document.getElementById('recordButton');
+    const stopButton = document.getElementById('stopButton');
+    const localAudio = document.getElementById('localAudio');
+    const remoteAudio = document.getElementById('remoteAudio');
 
-        let mediaRecorder;
-        let audioChunks = [];
+    let mediaRecorder;
+    let audioChunks = [];
 
-        recordButton.addEventListener('click', startRecording);
-        stopButton.addEventListener('click', stopRecording);
+    recordButton.addEventListener('click', startRecording);
+    stopButton.addEventListener('click', stopRecording);
 
-        async function startRecording() {
-            recordButton.disabled = true;
-            stopButton.disabled = false;
+    async function startRecording() {
+      recordButton.disabled = true;
+      stopButton.disabled = false;
 
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            mediaRecorder.ondataavailable = event => {
-                audioChunks.push(event.data);
-            };
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true
+      });
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = event => {
+        audioChunks.push(event.data);
+      };
 
-            mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                const audioUrl = URL.createObjectURL(audioBlob);
-                localAudio.src = audioUrl;
-                sendAudio(audioBlob);
-                audioChunks = [];
-            };
-
-            mediaRecorder.start();
-        }
-
-        function stopRecording() {
-            recordButton.disabled = false;
-            stopButton.disabled = true;
-            mediaRecorder.stop();
-        }
-
-        function sendAudio(audioBlob) {
-            const reader = new FileReader();
-            reader.onload = () => {
-                const audioData = reader.result;
-                channel.publish('voice', { audio: audioData });
-            };
-            reader.readAsDataURL(audioBlob);
-        }
-
-        channel.subscribe('voice', message => {
-            const audioData = message.data.audio;
-            remoteAudio.src = audioData;
-            remoteAudio.play();
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks, {
+          type: 'audio/webm'
         });
-    </script>
+        const audioUrl = URL.createObjectURL(audioBlob);
+        localAudio.src = audioUrl;
+        sendAudio(audioBlob);
+        audioChunks = [];
+      };
+
+      mediaRecorder.start();
+    }
+
+    function stopRecording() {
+      recordButton.disabled = false;
+      stopButton.disabled = true;
+      mediaRecorder.stop();
+    }
+
+    async function sendAudio(audioBlob) {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const audioData = reader.result;
+        // Upload the audio to AssemblyAI
+        const uploadURL = await assembly.files.upload(audioBlob);
+        const transcript = await assembly.transcripts.create({
+          audio_url: uploadURL,
+          sentiment_analysis: true,
+        });
+
+          const transcriptId = transcript.id;
+
+           const transcriptData = await assembly.transcripts.get(transcriptId)
+
+            if (transcriptData.sentiment_analysis_results) {
+                const sentimentData = transcriptData.sentiment_analysis_results;
+
+                 sentimentData.forEach(item => {
+                        if (item.sentiment === 'NEGATIVE') {
+                            // Mute user, do something
+                        }
+                    })
+                channel.publish('voice', {
+                    audio: audioData
+                });
+
+            }
+      };
+      reader.readAsDataURL(audioBlob);
+    }
+
+    channel.subscribe('voice', message => {
+      const audioData = message.data.audio;
+      remoteAudio.src = audioData;
+      remoteAudio.play();
+    });
+  </script>
 </body>
+
 </html>

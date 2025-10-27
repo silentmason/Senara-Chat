@@ -3,7 +3,6 @@
 const ably = new Ably.Realtime({
     key: 'XRHh7Q.qwLKgw:8Zu58gbvPatTpQOVhZ4fBvckDwEsWIWqx1E1NYUqbck'
 });
-const channel = ably.channels.get('voice-channel');
 const chatArea = document.getElementById('chat-area');
 const messageInput = document.getElementById('message-input');
 const sendButton = document.getElementById('send-button');
@@ -20,6 +19,12 @@ const darkModeToggle = document.getElementById('darkModeToggle');
 const loginModal = document.getElementById('loginModal');
 const signInButtonModal = document.getElementById('signInButtonModal');
 
+// Add these lines to the existing variable declarations:
+const roomNameInput = document.getElementById('roomName');
+const joinRoomButton = document.getElementById('joinRoomButton');
+let currentChannel; // Store the current Ably channel
+
+
 const usernameKey = 'username';
 const avatarKey = 'avatar';
 const themeKey = 'theme'; // Add a key for the theme
@@ -34,7 +39,8 @@ function decodeJwtResponse(token) {
     return JSON.parse(jsonPayload);
 }
 
-function startAll() {
+// Modify the startAll function to accept a room name
+function startAll(roomName) {
     // Load username and avatar from localStorage on page load
     if (localStorage.getItem(usernameKey)) {
         usernameInput.value = localStorage.getItem(usernameKey);
@@ -62,13 +68,22 @@ function startAll() {
 
     function sendMessage() {
         const messageText = messageInput.value;
-        channel.publish('message', {
+        currentChannel.publish('message', {
             text: messageText
         });
         messageInput.value = '';
     }
 
-    channel.subscribe('message', function(message) {
+     // If a channel already exists, detach from it.
+    if (currentChannel) {
+        currentChannel.detach();
+    }
+
+    // Get the Ably channel based on the room name
+    currentChannel = ably.channels.get(roomName);
+
+    //All channel subscriptions should be to the currentChannel
+    currentChannel.subscribe('message', function(message) {
         const messageElement = document.createElement('p');
         messageElement.textContent = message.data.text;
         chatArea.appendChild(messageElement);
@@ -86,7 +101,7 @@ function startAll() {
 
         peerConnection.onicecandidate = event => {
             if (event.candidate) {
-                channel.publish('ice-candidate', {
+                currentChannel.publish('ice-candidate', {
                     candidate: event.candidate
                 });
             }
@@ -108,22 +123,22 @@ function startAll() {
             console.error('Error accessing media devices:', error);
         }
 
-        channel.subscribe('ice-candidate', message => {
+        currentChannel.subscribe('ice-candidate', message => {
             peerConnection.addIceCandidate(message.data.candidate);
         });
 
-        channel.subscribe('offer', message => {
+        currentChannel.subscribe('offer', message => {
             peerConnection.setRemoteDescription(new RTCSessionDescription(message.data.sdp))
                 .then(() => peerConnection.createAnswer())
                 .then(answer => peerConnection.setLocalDescription(answer))
                 .then(() => {
-                    channel.publish('answer', {
+                    currentChannel.publish('answer', {
                         sdp: peerConnection.localDescription
                     });
                 });
         });
 
-        channel.subscribe('answer', message => {
+        currentChannel.subscribe('answer', message => {
             peerConnection.setRemoteDescription(new RTCSessionDescription(message.data.sdp));
         });
 
@@ -131,7 +146,7 @@ function startAll() {
             peerConnection.createOffer()
                 .then(offer => peerConnection.setLocalDescription(offer))
                 .then(() => {
-                    channel.publish('offer', {
+                    currentChannel.publish('offer', {
                         sdp: peerConnection.localDescription
                     });
                 });
@@ -142,7 +157,7 @@ function startAll() {
         return Math.random() < 0.5;
     }
 
-    startWebRTC();
+    startWebRTC(); // Start WebRTC after joining the room
 }
 
 // Load theme from localStorage on page load
@@ -150,6 +165,7 @@ if (localStorage.getItem('theme')) {
   document.body.setAttribute('data-theme', localStorage.getItem('theme'));
   darkModeToggle.textContent = localStorage.getItem('theme') === 'dark' ? 'Toggle Light Mode' : 'Toggle Dark Mode';
 }
+
 function toggleDarkMode() {
   const body = document.body;
   const currentTheme = body.getAttribute('data-theme');
@@ -168,12 +184,14 @@ function hideLoginModal() {
     $(loginModal).modal('hide'); // Requires jQuery
 }
 
+// Modify onSignIn to pass a default room, or prompt the user
 function onSignIn(response) {
     // Decodes the ID token to get the user's profile
     const profile = decodeJwtResponse(response.credential);
   console.log('profile', profile);
     sessionStorage.setItem('signedIn', 'true');
     hideLoginModal();
+    //startAll("default-room"); //Remove this line
     startAll();
 }
 
@@ -185,3 +203,14 @@ window.onload = function() {
     });
     google.accounts.id.prompt();
 };
+
+// Add an event listener to the join room button
+joinRoomButton.addEventListener('click', function() {
+    const roomName = roomNameInput.value;
+    if (roomName) {
+        startAll(roomName); // Start the application with the specified room
+    } else {
+        alert('Please enter a room name.');
+    }
+});
+

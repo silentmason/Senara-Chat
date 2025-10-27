@@ -33,6 +33,7 @@ const serverList = document.getElementById('server-list');
 const newServerNameInput = document.getElementById('new-server-name');
 const createServerButton = document.getElementById('create-server-button');
 const voiceChannelList = document.getElementById('voice-channel-list');
+const voiceStatus = document.getElementById('voice-status'); // Status Indicator
 
 let currentServer = null;
 
@@ -60,6 +61,9 @@ function joinServer(serverName) {
     const voiceChannelItem = document.createElement('li');
     voiceChannelItem.textContent = "No one is currently in a voice channel."
     voiceChannelList.appendChild(voiceChannelItem)
+
+    voiceStatus.textContent = "In voice call";
+    voiceStatus.classList.add("in-call");
 }
 
 function createVoiceChannel(channelName) {
@@ -85,6 +89,13 @@ function decodeJwtResponse(token) {
         return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
     }).join(''));
     return JSON.parse(jsonPayload);
+}
+
+function userJoined(username) {
+    // Update the voice channel list or display a notification
+    const joinedMessage = document.createElement('li');
+    joinedMessage.textContent = `${username} joined the voice call!`;
+    voiceChannelList.appendChild(joinedMessage);
 }
 
 // Modify the startAll function to accept a room name
@@ -163,17 +174,19 @@ function startAll(roomName) {
             peerConnection.ontrack = (event) => {
                 console.log('Received remote track');
                 remoteAudio.srcObject = event.streams[0];
+                userJoined("Some User"); // Replace with actual username
             };
 
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: true,
+                    video: false, // Set video to false
                     audio: true
                 });
                 localVideo.srcObject = stream;
                 stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
             } catch (error) {
                 console.error('Error accessing media devices:', error);
+                alert('Failed to access microphone. Please check your permissions.'); //Added alert
             }
 
             currentChannel.subscribe('ice-candidate', message => {

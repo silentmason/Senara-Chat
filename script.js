@@ -58,9 +58,9 @@ function joinServer(serverName) {
 
     // You would typically fetch voice channels from a server here and display them
     // For now, we just display a message.
-    const voiceChannelItem = document.createElement('li');
-    voiceChannelItem.textContent = "No one is currently in a voice channel."
-    voiceChannelList.appendChild(voiceChannelItem)
+    //const voiceChannelItem = document.createElement('li');
+    //voiceChannelItem.textContent = "No one is currently in a voice channel."
+    //voiceChannelList.appendChild(voiceChannelItem)
 
     voiceStatus.textContent = "In voice call";
     voiceStatus.classList.add("in-call");

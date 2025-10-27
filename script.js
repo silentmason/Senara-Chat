@@ -24,16 +24,64 @@ const roomNameInput = document.getElementById('roomName');
 const joinRoomButton = document.getElementById('joinRoomButton');
 let currentChannel; // Store the current Ably channel
 
-
 const usernameKey = 'username';
 const avatarKey = 'avatar';
 const themeKey = 'theme'; // Add a key for the theme
 
+// New elements
+const serverList = document.getElementById('server-list');
+const newServerNameInput = document.getElementById('new-server-name');
+const createServerButton = document.getElementById('create-server-button');
+const voiceChannelList = document.getElementById('voice-channel-list');
+
+let currentServer = null;
+
+// Function to create a server (client-side only for now)
+function createServer(serverName) {
+    const serverItem = document.createElement('li');
+    serverItem.textContent = serverName;
+    serverItem.addEventListener('click', () => joinServer(serverName)); //On click, it should change the server
+    serverList.appendChild(serverItem);
+    joinServer(serverName); //Join the server after creating it
+}
+
+// Function to join a server
+function joinServer(serverName) {
+    currentServer = serverName;
+    console.log(`Joined server: ${serverName}`);
+    // Clear the voice channels list
+    voiceChannelList.innerHTML = '';
+
+    //Add the general voice channel by default
+    createVoiceChannel("General");
+
+    // You would typically fetch voice channels from a server here and display them
+    // For now, we just display a message.
+    const voiceChannelItem = document.createElement('li');
+    voiceChannelItem.textContent = "No one is currently in a voice channel."
+    voiceChannelList.appendChild(voiceChannelItem)
+}
+
+function createVoiceChannel(channelName) {
+  const voiceChannelItem = document.createElement('li');
+  voiceChannelItem.textContent = channelName;
+  voiceChannelList.appendChild(voiceChannelItem);
+}
+
+// Event listener for creating a server
+createServerButton.addEventListener('click', () => {
+    const serverName = newServerNameInput.value;
+    if (serverName) {
+        createServer(serverName);
+        newServerNameInput.value = ''; // Clear the input
+    }
+});
+
 // Function to decode a JWT token (https://jwt.io/)
 function decodeJwtResponse(token) {
-  let base64Url = token.split('.')[1];
-  let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-  let jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+    let base64Url = token.split('.')[1];
+    let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    let jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
         return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
     }).join(''));
     return JSON.parse(jsonPayload);
@@ -68,10 +116,14 @@ function startAll(roomName) {
 
     function sendMessage() {
         const messageText = messageInput.value;
-        currentChannel.publish('message', {
-            text: messageText
-        });
-        messageInput.value = '';
+        if (currentChannel) { // Make sure currentChannel exists
+            currentChannel.publish('message', {
+                text: messageText
+            });
+            messageInput.value = '';
+        } else {
+            alert('Please join a room first.');
+        }
     }
 
      // If a channel already exists, detach from it.
@@ -80,84 +132,86 @@ function startAll(roomName) {
     }
 
     // Get the Ably channel based on the room name
-    currentChannel = ably.channels.get(roomName);
+    if (roomName) {
+        currentChannel = ably.channels.get(roomName);
 
-    //All channel subscriptions should be to the currentChannel
-    currentChannel.subscribe('message', function(message) {
-        const messageElement = document.createElement('p');
-        messageElement.textContent = message.data.text;
-        chatArea.appendChild(messageElement);
-        chatArea.scrollTop = chatArea.scrollHeight;
-    });
+        //All channel subscriptions should be to the currentChannel
+        currentChannel.subscribe('message', function(message) {
+            const messageElement = document.createElement('p');
+            messageElement.textContent = message.data.text;
+            chatArea.appendChild(messageElement);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        });
 
-    async function startWebRTC() {
-        const configuration = {
-            iceServers: [{
-                urls: 'stun:stun.l.google.com:19302'
-            }]
-        };
+        async function startWebRTC() {
+            const configuration = {
+                iceServers: [{
+                    urls: 'stun:stun.l.google.com:19302'
+                }]
+            };
 
-    let peerConnection = new RTCPeerConnection(configuration);
+            let peerConnection = new RTCPeerConnection(configuration);
 
-        peerConnection.onicecandidate = event => {
-            if (event.candidate) {
-                currentChannel.publish('ice-candidate', {
-                    candidate: event.candidate
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    currentChannel.publish('ice-candidate', {
+                        candidate: event.candidate
+                    });
+                }
+            };
+
+            peerConnection.ontrack = (event) => {
+                console.log('Received remote track');
+                remoteAudio.srcObject = event.streams[0];
+            };
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
                 });
+                localVideo.srcObject = stream;
+                stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+            } catch (error) {
+                console.error('Error accessing media devices:', error);
             }
-        };
 
-        peerConnection.ontrack = (event) => {
-      console.log('Received remote track');
-            remoteAudio.srcObject = event.streams[0];
-        };
-
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: true
+            currentChannel.subscribe('ice-candidate', message => {
+                peerConnection.addIceCandidate(message.data.candidate);
             });
-            localVideo.srcObject = stream;
-            stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
-        } catch (error) {
-            console.error('Error accessing media devices:', error);
+
+            currentChannel.subscribe('offer', message => {
+                peerConnection.setRemoteDescription(new RTCSessionDescription(message.data.sdp))
+                    .then(() => peerConnection.createAnswer())
+                    .then(answer => peerConnection.setLocalDescription(answer))
+                    .then(() => {
+                        currentChannel.publish('answer', {
+                            sdp: peerConnection.localDescription
+                        });
+                    });
+            });
+
+            currentChannel.subscribe('answer', message => {
+                peerConnection.setRemoteDescription(new RTCSessionDescription(message.data.sdp));
+            });
+
+            if (isCaller()) {
+                peerConnection.createOffer()
+                    .then(offer => peerConnection.setLocalDescription(offer))
+                    .then(() => {
+                        currentChannel.publish('offer', {
+                            sdp: peerConnection.localDescription
+                        });
+                    });
+            }
         }
 
-        currentChannel.subscribe('ice-candidate', message => {
-            peerConnection.addIceCandidate(message.data.candidate);
-        });
-
-        currentChannel.subscribe('offer', message => {
-            peerConnection.setRemoteDescription(new RTCSessionDescription(message.data.sdp))
-                .then(() => peerConnection.createAnswer())
-                .then(answer => peerConnection.setLocalDescription(answer))
-                .then(() => {
-                    currentChannel.publish('answer', {
-                        sdp: peerConnection.localDescription
-                    });
-                });
-        });
-
-        currentChannel.subscribe('answer', message => {
-            peerConnection.setRemoteDescription(new RTCSessionDescription(message.data.sdp));
-        });
-
-        if (isCaller()) {
-            peerConnection.createOffer()
-                .then(offer => peerConnection.setLocalDescription(offer))
-                .then(() => {
-                    currentChannel.publish('offer', {
-                        sdp: peerConnection.localDescription
-                    });
-                });
+        function isCaller() {
+            return Math.random() < 0.5;
         }
-    }
 
-    function isCaller() {
-        return Math.random() < 0.5;
+        startWebRTC(); // Start WebRTC after joining the room
     }
-
-    startWebRTC(); // Start WebRTC after joining the room
 }
 
 // Load theme from localStorage on page load
@@ -188,7 +242,7 @@ function hideLoginModal() {
 function onSignIn(response) {
     // Decodes the ID token to get the user's profile
     const profile = decodeJwtResponse(response.credential);
-  console.log('profile', profile);
+    console.log('profile', profile);
     sessionStorage.setItem('signedIn', 'true');
     hideLoginModal();
     //startAll("default-room"); //Remove this line
@@ -198,7 +252,7 @@ function onSignIn(response) {
 //Google one tap sign in
 window.onload = function() {
     google.accounts.id.initialize({
-    client_id: '691636065786-dtr3orgvt0jma5urcbp35dlspuarfn58.apps.googleusercontent.com', // REMEMBER TO REPLACE
+        client_id: '691636065786-dtr3orgvt0jma5urcbp35dlspuarfn58.apps.googleusercontent.com', // REMEMBER TO REPLACE
         callback: onSignIn
     });
     google.accounts.id.prompt();
@@ -213,4 +267,3 @@ joinRoomButton.addEventListener('click', function() {
         alert('Please enter a room name.');
     }
 });
-

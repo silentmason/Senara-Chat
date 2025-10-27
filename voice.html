@@ -1,90 +1,47 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Voice Chat</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <script src="https://cdn.ably.com/ably.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+ <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="script.js"></script>
 </head>
-<body>
-    <h1>Live Voice Chat</h1>
 
+<body data-theme="dark">
+    <h1>Live Voice Chat</h1>
+    <button id="muteButton">Unmute</button>
     <div>
         <h2>Your Audio</h2>
         <audio id="localAudio" autoplay muted></audio>
     </div>
-
     <div>
         <h2>Remote Audio</h2>
         <audio id="remoteAudio" autoplay controls></audio>
     </div>
+    <!-- Login Modal -->
+    <div class="modal fade" id="loginModal" tabindex="-1" role="dialog" aria-labelledby="loginModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="loginModalLabel">Login or Register</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>Please sign in to continue.</p>
+                    <button id="signInButtonModal">Sign In with Google</button>
+                </div>
+            </div>
+        </div>
+    </div>
+  </body>
 
-    <script>
-        const ably = new Ably.Realtime({ key: 'XRHh7Q.QGrriA:3QlMEmxAp2POdgbMdec3-6pV1R3QOJ82wGLsRE4tDLU' }); // Replace with your API key
-        const channel = ably.channels.get('voice-channel');
-
-        const localAudio = document.getElementById('localAudio');
-        const remoteAudio = document.getElementById('remoteAudio');
-
-        let peerConnection;
-
-        async function startWebRTC() {
-            const configuration = {
-                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-            };
-
-            peerConnection = new RTCPeerConnection(configuration);
-
-            peerConnection.onicecandidate = event => {
-                if (event.candidate) {
-                    channel.publish('ice-candidate', { candidate: event.candidate });
-                }
-            };
-
-            peerConnection.ontrack = event => {
-                remoteAudio.srcObject = event.streams[0];
-            };
-
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                localAudio.srcObject = stream;
-                stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
-            } catch (error) {
-                console.error('Error accessing media devices:', error);
-            }
-
-            channel.subscribe('ice-candidate', message => {
-                peerConnection.addIceCandidate(message.data.candidate);
-            });
-
-            channel.subscribe('offer', message => {
-                peerConnection.setRemoteDescription(new RTCSessionDescription(message.data.sdp))
-                    .then(() => peerConnection.createAnswer())
-                    .then(answer => peerConnection.setLocalDescription(answer))
-                    .then(() => {
-                        channel.publish('answer', { sdp: peerConnection.localDescription });
-                    });
-            });
-
-            channel.subscribe('answer', message => {
-                peerConnection.setRemoteDescription(new RTCSessionDescription(message.data.sdp));
-            });
-
-            if (isCaller()) {
-                peerConnection.createOffer()
-                    .then(offer => peerConnection.setLocalDescription(offer))
-                    .then(() => {
-                        channel.publish('offer', { sdp: peerConnection.localDescription });
-                    });
-            }
-        }
-
-        function isCaller() {
-            return Math.random() < 0.5;
-        }
-
-        startWebRTC();
-    </script>
-</body>
 </html>
